@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El mundo, ahora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: sala de situación sobria, como la mesa de gráficos de un buen periódico
+   IDEA: una carta náutica viva donde cada aviso se clava en su sitio y cada país tiene su ficha
+   PICTURE: el mapa del mundo a todo lo ancho, con puntos que laten y contadores que corren
+   COLOUR and TYPE: mar #bfe3ee, tierra #fbfbf2, tinta #13242e, un color por sección; Overpass
+   LAYOUT: cabecera, contadores mundiales, mapa, ficha del país, secciones de avisos */
+:root{color-scheme:light dark;
+--sea:light-dark(#bfe3ee,#0d1c24);--land:light-dark(#fbfbf2,#1d3441);--border:light-dark(#9cc3cf,#2f4d5c);
+--bg:light-dark(#f4f8f6,#0a161c);--card:light-dark(#ffffff,#122630);--ink:light-dark(#13242e,#e6eef0);
+--mute:light-dark(#4d6470,#9bb2bb);--line:light-dark(#d8e4e6,#24404d);--acc:#d6127e;--birth:#00a05a;--death:#4d6470}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Overpass,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(16px,2.5vw,32px) max(4vw,16px)}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+h1{font-size:clamp(30px,4vw,46px);line-height:1.05;margin:0;font-weight:800;text-wrap:balance}
+h2{font-size:clamp(24px,3vw,32px);line-height:1.1;margin:0;font-weight:800}
+.sub{color:var(--mute);margin:4px 0 0;font-size:15px}
+.live{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px}
+.dot{width:10px;height:10px;border-radius:50%;background:#e6261f;box-shadow:0 0 0 0 #e6261f88;animation:pulse 2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 10px #e6261f00}100%{box-shadow:0 0 0 0 #e6261f00}}
+button,select,input{font:inherit;color:inherit}
+.btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600}
+.btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible,.card:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+select,.tools input{min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:16px}
+.counters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:18px}
+.ctr{background:var(--card);padding:14px 16px}
+.ctr .k{font-size:14px;color:var(--mute);font-weight:600;display:flex;align-items:center;gap:6px}
+.ctr .v{font-size:clamp(22px,2.6vw,32px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctr .s{font-size:13px;color:var(--mute)}
+.b .v{color:var(--birth)}.d .v{color:var(--death)}
+:root[data-theme=dark] .d .v{color:#b9cbd2}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .d .v{color:#b9cbd2}}
+.maptools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:0 max(4vw,16px) 12px}
+.maptools label{font-size:14px;color:var(--mute);font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.maptools select{max-width:100%}
+.mapwrap{position:relative;height:clamp(340px,58vh,640px);background:var(--sea);border-top:1px solid var(--border);border-bottom:1px solid var(--border);overflow:hidden}
+.mapwrap svg{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none}
+.country{fill:var(--land);stroke:var(--border);stroke-width:.5;cursor:pointer}
+.country:hover{stroke:var(--ink);stroke-width:1}
+.country.csel{stroke:var(--acc);stroke-width:2}
+.grat{fill:none;stroke:var(--border);stroke-width:.4;stroke-opacity:.6;pointer-events:none}
+.pt{stroke:#fff;stroke-opacity:.9;cursor:pointer}
+.pt.sel{stroke:var(--ink);stroke-width:2.5}
+.ring{fill:none;pointer-events:none;animation:ring 1.6s ease-out 3}
+@keyframes ring{from{r:4;opacity:.9}to{r:26;opacity:0}}
+.zoom{position:absolute;right:12px;top:12px;display:grid;gap:6px}
+.zoom .btn{width:44px;padding:0;font-size:20px}
+.legend{position:absolute;right:12px;bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;display:none;width:200px}
+.legend .bar{height:10px;border-radius:4px;margin:4px 0 2px}
+.legend .lim{display:flex;justify-content:space-between;color:var(--mute)}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;max-width:260px;box-shadow:0 4px 14px #0003;display:none;z-index:3}
+.info{position:absolute;left:12px;bottom:12px;max-width:min(380px,calc(100% - 24px));background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 8px 28px #0003;display:none;z-index:2}
+.info h3{margin:4px 0 6px;font-size:17px;line-height:1.25}
+.x{position:absolute;right:6px;top:6px;border:0;background:none;width:40px;height:40px;font-size:22px;cursor:pointer;color:var(--mute)}
+.loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--mute);font-weight:600;pointer-events:none}
+.panel{display:none;border-bottom:1px solid var(--line)}
+.panel.on{display:block}
+.phead{display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.phead .who{display:flex;gap:14px;align-items:center}
+.flag{width:64px;height:auto;border-radius:4px;box-shadow:0 0 0 1px var(--line)}
+.facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,190px),1fr));gap:10px;margin-top:14px}
+.fact{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.fact .k{font-size:13px;color:var(--mute)}
+.fact .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.fact .y{font-size:12px;color:var(--mute)}
+.note{font-size:13px;color:var(--mute);margin:12px 0 0}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:thin}
+.tab{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600;font-size:15px;white-space:nowrap}
+.tab[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab .n{font-weight:400;opacity:.75;font-variant-numeric:tabular-nums}
+.sw{width:11px;height:11px;border-radius:50%;flex:none}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:6px 0 10px}
+.tools input{flex:1 1 220px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 6px 0 14px;border-radius:999px;background:var(--ink);color:var(--bg);font-weight:600;font-size:15px}
+.chip button{border:0;background:none;color:inherit;width:34px;height:34px;font-size:18px;cursor:pointer}
+.status{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--mute);margin-bottom:14px}
+.status b{font-weight:600}.status .err{color:#c0392b}.status .ok{color:light-dark(#0a7d48,#4fd19a)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;cursor:pointer}
+.card.sel{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink)}
+.meta{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:13px;color:var(--mute)}
+.meta .lab{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--ink)}
+.card h3{margin:0;font-size:16px;line-height:1.3;overflow-wrap:anywhere}
+.card .place{font-size:14px;color:var(--mute)}
+.card a,.info a{color:var(--ink);font-size:14px;font-weight:600}
+.nopin{font-size:12px;color:var(--mute)}
+.empty{padding:28px;text-align:center;color:var(--mute);grid-column:1/-1}
+footer{color:var(--mute);font-size:13px}
+footer a{color:inherit}
+@media(max-width:760px){.counters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.zoom{top:8px;right:8px}.legend{display:none!important}}
+@media(prefers-reduced-motion:reduce){.dot,.ring{animation:none}}
+</style>
+</head>
+<body>
+<div class="band">
+  <header>
+    <div>
+      <h1>El mundo, ahora</h1>
+      <p class="sub">Nacimientos, muertes, terremotos, tormentas, incendios y noticias, en directo. Toca un país para ver su ficha.</p>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <span class="live"><span class="dot"></span><span id="upd">Conectando…</span></span>
+      <button class="btn" id="refresh">Actualizar</button>
+    </div>
+  </header>
+  <div class="counters" id="worldctr">
+    <div class="ctr"><div class="k">Población mundial</div><div class="v" data-live="pop" data-iso="WLD">—</div><div class="s">estimación en este instante</div></div>
+    <div class="ctr b"><div class="k">Nacimientos hoy</div><div class="v" data-live="births" data-iso="WLD">—</div><div class="s" data-rate="b" data-iso="WLD">&nbsp;</div></div>
+    <div class="ctr d"><div class="k">Muertes hoy</div><div class="v" data-live="deaths" data-iso="WLD">—</div><div class="s" data-rate="d" data-iso="WLD">&nbsp;</div></div>
+    <div class="ctr"><div class="k">Crecimiento natural hoy</div><div class="v" data-live="net" data-iso="WLD">—</div><div class="s">nacimientos menos muertes</div></div>
+  </div>
+</div>
+
+<div class="maptools">
+  <label>País <select id="country" aria-label="Elegir país"><option value="">El mundo entero</option></select></label>
+  <label>Colorear el mapa por <select id="metric" aria-label="Colorear el mapa por">
+    <option value="">Nada (solo avisos)</option>
+    <option value="cbr">Natalidad</option>
+    <option value="cdr">Mortalidad</option>
+    <option value="le">Esperanza de vida</option>
+    <option value="tfr">Hijos por mujer</option>
+    <option value="imr">Mortalidad infantil</option>
+    <option value="pop">Población</option>
+    <option value="gdppc">PIB por habitante</option>
+    <option value="urb">Población urbana</option>
+    <option value="net">Uso de internet</option>
+  </select></label>
+</div>
+
+<div class="mapwrap" id="mapwrap">
+  <svg id="map" aria-label="Mapa del mundo con países y eventos"></svg>
+  <div class="loading" id="maploading">Cargando el mapa…</div>
+  <div class="zoom">
+    <button class="btn" id="zin" aria-label="Acercar">+</button>
+    <button class="btn" id="zout" aria-label="Alejar">−</button>
+    <button class="btn" id="zreset" aria-label="Ver el mundo entero" style="font-size:15px">⟲</button>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div class="tip" id="tip"></div>
+  <div class="info" id="info"></div>
+</div>
+
+<section class="panel band" id="panel" aria-live="polite"></section>
+
+<div class="band">
+  <div class="tabs" id="tabs" role="toolbar" aria-label="Secciones"></div>
+  <div class="tools">
+    <span id="ccchip"></span>
+    <input id="q" type="search" placeholder="Buscar un lugar o tema…" aria-label="Buscar">
+    <select id="lang" aria-label="Idioma de las noticias">
+      <option value="spanish">Noticias en español</option>
+      <option value="">Noticias en todos los idiomas</option>
+    </select>
+    <select id="span" aria-label="Periodo de las noticias">
+      <option value="24h">Últimas 24 horas</option>
+      <option value="6h">Últimas 6 horas</option>
+      <option value="3d">Últimos 3 días</option>
+    </select>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="grid" id="list"></div>
+</div>
+
+<div class="band">
+  <footer>
+    Datos en directo de <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">USGS</a> (terremotos),
+    <a href="https://eonet.gsfc.nasa.gov/" target="_blank" rel="noopener">NASA EONET</a> (fenómenos naturales),
+    <a href="https://www.gdacs.org/" target="_blank" rel="noopener">GDACS</a> (alertas de desastre) y
+    <a href="https://www.gdeltproject.org/" target="_blank" rel="noopener">GDELT</a> (noticias). Datos de países del
+    <a href="https://data.worldbank.org/" target="_blank" rel="noopener">Banco Mundial</a> y <a href="https://restcountries.com/" target="_blank" rel="noopener">REST Countries</a>.
+    Los nacimientos, muertes y población son estimaciones en directo calculadas con las tasas anuales más recientes de cada país: ningún país publica estos datos segundo a segundo.
+    Las noticias se colocan en el mapa por el lugar que nombra el titular.
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script>
+{
+const SECS=[
+ {id:'all',name:'Todo',color:'#13242e'},
+ {id:'n_cty',name:'Noticias del país',color:'#d6127e'},
+ {id:'eq',name:'Terremotos',color:'#c2185b'},
+ {id:'storm',name:'Tormentas y ciclones',color:'#0a5cff'},
+ {id:'fire',name:'Incendios',color:'#f26b1d'},
+ {id:'volc',name:'Volcanes',color:'#a8551b'},
+ {id:'flood',name:'Inundaciones',color:'#00a0b0'},
+ {id:'nat',name:'Otros fenómenos',color:'#6b8e23'},
+ {id:'gdacs',name:'Alertas de desastre',color:'#e6261f'},
+ {id:'n_dis',name:'Desastres en las noticias',color:'#7b3fe4'},
+ {id:'n_war',name:'Conflictos',color:'#8b1a1a'},
+ {id:'n_pol',name:'Política',color:'#2c5aa0'},
+ {id:'n_eco',name:'Economía',color:'#b8860b'},
+ {id:'n_sci',name:'Ciencia y tecnología',color:'#00a05a'},
+ {id:'n_spo',name:'Deportes',color:'#ff4fa3'}
+];
+const SEC=Object.fromEntries(SECS.map(s=>[s.id,s]));
+const NEWS=[
+ {id:'n_dis',q:'(tornado OR huracán OR inundaciones OR terremoto OR tifón OR tormenta OR "incendio forestal" OR erupción)',qen:'(tornado OR hurricane OR flooding OR earthquake OR typhoon OR wildfire OR eruption OR cyclone)'},
+ {id:'n_war',q:'(guerra OR bombardeo OR ataque OR misiles OR ofensiva OR "alto el fuego")',qen:'(war OR airstrike OR missile OR offensive OR ceasefire OR troops)'},
+ {id:'n_pol',q:'(elecciones OR gobierno OR presidente OR parlamento OR cumbre OR protestas)',qen:'(election OR government OR president OR parliament OR summit OR protests)'},
+ {id:'n_eco',q:'(economía OR inflación OR aranceles OR bolsa OR petróleo OR "banco central")',qen:'(economy OR inflation OR tariffs OR stocks OR oil OR "central bank")'},
+ {id:'n_sci',q:'(ciencia OR NASA OR cohete OR "inteligencia artificial" OR científicos OR descubrimiento)',qen:'(science OR NASA OR rocket OR "artificial intelligence" OR scientists OR discovery)'},
+ {id:'n_spo',q:'(fútbol OR tenis OR baloncesto OR "Fórmula 1" OR Champions OR Mundial)',qen:'(football OR soccer OR tennis OR basketball OR "Formula 1" OR Olympics)'}
+];
+const PLACES=String.raw`Estados Unidos|EEUU|EE\.UU\.|EE UU|United States|U\.S\.|USA|Washington|Casa Blanca|White House:38.9,-77;Nueva York|New York:40.7,-74;California|Los Ángeles|Los Angeles:34.05,-118.2;Texas:31,-99;Florida:28,-81.7;Canadá|Canada:56,-106;México|Mexico:23.6,-102.5;Guatemala:15.5,-90.3;Honduras:15.2,-86.2;El Salvador:13.8,-88.9;Nicaragua:12.9,-85.2;Costa Rica:9.8,-84;Panamá|Panama:8.5,-80.8;Cuba|La Habana|Havana:21.5,-79.5;Haití|Haiti:19,-72.3;República Dominicana|Dominican Republic:18.7,-70.2;Puerto Rico:18.2,-66.5;Venezuela|Caracas:7,-66;Colombia|Bogotá:4.6,-74.1;Ecuador|Quito|Guayaquil:-1.8,-78.2;Perú|Peru|Lima:-9.2,-75;Bolivia|La Paz:-16.3,-63.6;Brasil|Brazil|Brasilia|São Paulo|Río de Janeiro:-14.2,-51.9;Chile|Santiago de Chile:-35.7,-71.5;Argentina|Buenos Aires:-38.4,-63.6;Uruguay|Montevideo:-32.5,-55.8;Paraguay|Asunción:-23.4,-58.4;España|Spain|Madrid|Barcelona|Valencia|Sevilla|Andalucía|Cataluña|Canarias:40.4,-3.7;Portugal|Lisboa|Lisbon:39.4,-8.2;Francia|France|París|Paris:46.6,2.2;Reino Unido|United Kingdom|Britain|Londres|London|Inglaterra|England|Escocia:54,-2;Irlanda|Ireland|Dublín:53.4,-8.2;Alemania|Germany|Berlín|Berlin:51.2,10.4;Italia|Italy|Roma|Rome|Milán:42.8,12.6;Vaticano|Vatican:41.9,12.45;Países Bajos|Holanda|Netherlands|Ámsterdam:52.1,5.3;Bélgica|Belgium|Bruselas|Brussels:50.8,4.4;Suiza|Switzerland|Ginebra|Geneva:46.8,8.2;Austria|Viena|Vienna:47.5,14.6;Polonia|Poland|Varsovia:51.9,19.1;Chequia|Czech:49.8,15.5;Hungría|Hungary|Budapest:47.2,19.5;Rumanía|Romania:45.9,24.97;Bulgaria:42.7,25.5;Grecia|Greece|Atenas|Athens:39.1,21.8;Serbia|Belgrado:44,21;Croacia|Croatia:45.1,15.2;Bosnia:43.9,17.7;Albania:41.2,20.2;Suecia|Sweden|Estocolmo:60.1,18.6;Noruega|Norway|Oslo:60.5,8.5;Finlandia|Finland|Helsinki:61.9,25.7;Dinamarca|Denmark|Copenhague:56.3,9.5;Groenlandia|Greenland:72,-40;Islandia|Iceland:64.9,-19;Estonia:58.6,25;Letonia|Latvia:56.9,24.6;Lituania|Lithuania:55.2,23.9;Moldavia|Moldova:47.4,28.4;Bielorrusia|Belarus|Minsk:53.7,27.9;Ucrania|Ukraine|Kiev|Kyiv|Járkov|Kharkiv|Odesa|Donbás|Donbas|Zaporiyia|Zaporizhzhia:49,31.2;Rusia|Russia|Moscú|Moscow|Kremlin:55.75,37.6;Turquía|Turkey|Türkiye|Ankara|Estambul|Istanbul:39,35.2;Georgia|Tiflis:42.3,43.4;Armenia:40.1,45;Azerbaiyán|Azerbaijan:40.1,47.6;Israel|Jerusalén|Jerusalem|Tel Aviv:31.5,34.9;Gaza|Palestina|Palestine|Cisjordania|West Bank:31.4,34.4;Líbano|Lebanon|Beirut:33.9,35.9;Siria|Syria|Damasco|Damascus:35,38.5;Jordania:31.2,36.5;Irak|Iraq|Bagdad|Baghdad:33.2,43.7;Irán|Iran|Teherán|Tehran|Ormuz|Hormuz:32.4,53.7;Arabia Saudí|Arabia Saudita|Saudi Arabia|Riad|Riyadh:23.9,45.1;Yemen:15.6,48.5;Emiratos|UAE|Dubái|Dubai|Abu Dabi:23.4,53.8;Catar|Qatar|Doha:25.3,51.2;Kuwait:29.3,47.5;Baréin|Bahrain:26.1,50.5;Omán|Oman:21.5,55.9;Egipto|Egypt|El Cairo|Cairo:26.8,30.8;Libia|Libya|Trípoli:26.3,17.2;Túnez|Tunisia:33.9,9.5;Argelia|Algeria:28,1.7;Marruecos|Morocco|Rabat:31.8,-7.1;Mali|Malí:17.6,-4;Níger|Niger:17.6,8.1;Nigeria|Lagos|Abuja:9.1,8.7;Chad:15.5,18.7;Sudán del Sur|South Sudan:6.9,31.3;Sudán|Sudan|Jartum|Khartoum|Darfur:15.6,30.2;Etiopía|Ethiopia:9.1,40.5;Eritrea:15.2,39.8;Somalia|Mogadiscio:5.2,46.2;Kenia|Kenya|Nairobi:-0.02,37.9;Uganda:1.4,32.3;Ruanda|Rwanda:-1.9,29.9;Congo|RDC|DRC|Kinshasa:-4,21.8;Ghana:7.9,-1;Senegal|Dakar:14.5,-14.5;Costa de Marfil|Ivory Coast:7.5,-5.5;Camerún|Cameroon:7.4,12.4;Angola:-11.2,17.9;Mozambique:-18.7,35.5;Zimbabue|Zimbabwe:-19,29.2;Sudáfrica|South Africa|Johannesburgo|Ciudad del Cabo:-30.6,22.9;Madagascar:-18.8,46.9;Tanzania:-6.4,34.9;India|Nueva Delhi|New Delhi|Bombay|Mumbai:20.6,79;Pakistán|Pakistan|Islamabad|Karachi:30.4,69.3;Afganistán|Afghanistan|Kabul:33.9,67.7;Bangladés|Bangladesh|Daca|Dhaka:23.7,90.4;Nepal|Katmandú:28.4,84.1;Sri Lanka:7.9,80.8;Birmania|Myanmar:21.9,95.96;Tailandia|Thailand|Bangkok:15.9,100.99;Camboya|Cambodia:12.6,104.99;Vietnam|Hanói|Hanoi:14.1,108.3;Laos:19.9,102.5;Malasia|Malaysia:4.2,101.98;Singapur|Singapore:1.35,103.8;Indonesia|Yakarta|Jakarta|Bali:-0.8,113.9;Filipinas|Philippines|Manila:12.9,121.8;China|Pekín|Beijing|Shanghái|Shanghai|Hong Kong:35.9,104.2;Taiwán|Taiwan|Taipéi:23.7,121;Japón|Japan|Tokio|Tokyo:36.2,138.3;Corea del Norte|North Korea|Pyongyang:40.3,127.5;Corea del Sur|South Korea|Seúl|Seoul:35.9,127.8;Mongolia:46.9,103.8;Kazajistán|Kazakhstan:48,66.9;Uzbekistán|Uzbekistan:41.4,64.6;Australia|Sídney|Sydney|Melbourne:-25.3,133.8;Nueva Zelanda|New Zealand:-40.9,174.9;Papúa|Papua:-6.3,143.96;Fiyi|Fiji:-17.7,178.1`
+ .split(';').map(s=>{const i=s.lastIndexOf(':');const [la,lo]=s.slice(i+1).split(',').map(Number);const names=s.slice(0,i).split('|');
+  return {re:new RegExp('(^|[^\\p{L}])('+names.join('|')+')(?=$|[^\\p{L}])','iu'),lat:la,lon:lo,name:names[0]};});
+
+/* ---------- utilidades ---------- */
+const state={data:{},status:{},active:'all',q:'',sel:null,k:1,cc:null,metric:''};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:'#';
+const rtf=new Intl.RelativeTimeFormat('es',{numeric:'auto'});
+const ago=t=>{const d=(t-Date.now())/1000,a=Math.abs(d);
+ if(a<60)return 'ahora mismo';if(a<3600)return rtf.format(Math.round(d/60),'minute');
+ if(a<86400)return rtf.format(Math.round(d/3600),'hour');return rtf.format(Math.round(d/86400),'day');};
+const fmt=t=>new Date(t).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const nf=(v,d=0)=>v==null||!isFinite(v)?'—':v.toLocaleString('es-ES',{maximumFractionDigits:d,minimumFractionDigits:0});
+const money=v=>v==null?'—':v>=1e12?nf(v/1e12,2)+' billones US$':v>=1e9?nf(v/1e9,1)+' mil millones US$':nf(v/1e6,0)+' millones US$';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]/g,'');
+function geocode(text){let best=null,bi=1e9;for(const p of PLACES){const m=p.re.exec(text);if(m&&m.index<bi){bi=m.index;best=p;}}return best;}
+function jitter(id){let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))|0;return [((h&255)/255-.5)*3,(((h>>8)&255)/255-.5)*3];}
+async function getJSON(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);
+ const t=await r.text();try{return JSON.parse(t);}catch(e){throw new Error(t.slice(0,80)||'respuesta vacía');}}
+function setStatus(k,label,ok,msg){state.status[k]={label,ok,msg};renderStatus();}
+const netMsg=e=>/fetch|NetworkError|Load failed/i.test(e.message)?'no se pudo conectar':e.message;
+
+/* ---------- países: Banco Mundial + REST Countries ---------- */
+const WBI={pop:'SP.POP.TOTL',cbr:'SP.DYN.CBRT.IN',cdr:'SP.DYN.CDRT.IN',gr:'SP.POP.GROW',le:'SP.DYN.LE00.IN',tfr:'SP.DYN.TFRT.IN',imr:'SP.DYN.IMRT.IN',gdp:'NY.GDP.MKTP.CD',gdppc:'NY.GDP.PCAP.CD',urb:'SP.URB.TOTL.IN.ZS',area:'AG.SRF.TOTL.K2',net:'IT.NET.USER.ZS',mig:'SM.POP.NETM'};
+const MET={cbr:{n:'Natalidad',u:'‰',d:1,i:d3.interpolateGreens},cdr:{n:'Mortalidad',u:'‰',d:1,i:d3.interpolateGreys},le:{n:'Esperanza de vida',u:' años',d:1,i:d3.interpolateYlGnBu},
+ tfr:{n:'Hijos por mujer',u:'',d:2,i:d3.interpolateRdPu},imr:{n:'Mortalidad infantil',u:'‰',d:1,i:d3.interpolateOrRd},pop:{n:'Población',u:'',d:0,i:d3.interpolatePuBu},
+ gdppc:{n:'PIB por habitante',u:' US$',d:0,i:d3.interpolateYlOrBr},urb:{n:'Población urbana',u:' %',d:0,i:d3.interpolateBlues},net:{n:'Uso de internet',u:' %',d:0,i:d3.interpolatePurples}};
+const wb={},rc={},rcByN={};const wbByName={};
+const ALIAS={'unitedstatesofamerica':'USA','russia':'RUS','iran':'IRN','egypt':'EGY','venezuela':'VEN','southkorea':'KOR','northkorea':'PRK','demrepcongo':'COD','congo':'COG','syria':'SYR','yemen':'YEM','turkey':'TUR','laos':'LAO','vietnam':'VNM','slovakia':'SVK','kyrgyzstan':'KGZ','gambia':'GMB','bahamas':'BHS','dominicanrep':'DOM','centralafricanrep':'CAF','ssudan':'SSD','bosniaandherz':'BIH','eqguinea':'GNQ','cotedivoire':'CIV','eswatini':'SWZ','macedonia':'MKD','northmacedonia':'MKD','solomonis':'SLB','brunei':'BRN','palestine':'PSE','czechia':'CZE','kosovo':'XKX','venezuelarb':'VEN','tanzania':'TZA','bolivia':'BOL','moldova':'MDA'};
+async function loadWB(){let ok=0,fail=0;
+ await Promise.all(Object.entries(WBI).map(async([k,code])=>{try{
+  const j=await getJSON(`https://api.worldbank.org/v2/country/all/indicator/${code}?format=json&mrnev=1&per_page=1000`);
+  for(const r of (j[1]||[])){const iso=r.countryiso3code;if(!iso)continue;const o=(wb[iso]??={name:r.country.value});wbByName[norm(r.country.value)]=iso;
+   if(r.value!=null)o[k]={v:r.value,y:+r.date};}ok++;}catch(e){fail++;}}));
+ setStatus('wb','Datos de países (Banco Mundial)',ok>0,ok>0?ok+' indicadores':'no se pudo conectar; se usan cifras mundiales aproximadas');
+ afterCountryData();}
+async function loadRC(){try{
+ const j=await getJSON('https://restcountries.com/v3.1/all?fields=name,cca3,ccn3,capital,flags,languages,currencies,translations,region,subregion');
+ for(const c of j){const o={es:c.translations?.spa?.common||c.name?.common,en:c.name?.common,capital:(c.capital||[]).join(', '),flag:c.flags?.svg||c.flags?.png,
+  langs:Object.values(c.languages||{}).join(', '),cur:Object.values(c.currencies||{}).map(x=>x.name+(x.symbol?' ('+x.symbol+')':'')).join(', '),region:[c.subregion,c.region].filter(Boolean).join(' · ')};
+  rc[c.cca3]=o;if(c.ccn3)rcByN[c.ccn3]=c.cca3;}
+ setStatus('rc','Fichas de países',true,j.length+' países');
+ }catch(e){setStatus('rc','Fichas de países',false,netMsg(e));}afterCountryData();}
+function isoOf(f){if(f._iso!==undefined)return f._iso;const n=norm(f.properties.name);
+ const iso=rcByN[f.id]||ALIAS[n]||wbByName[n]||Object.keys(rc).find(k=>norm(rc[k].en)===n)||null;
+ if(Object.keys(rc).length||Object.keys(wb).length)f._iso=iso;return iso;}
+const cname=iso=>iso==='WLD'?'El mundo':rc[iso]?.es||wb[iso]?.name||(feats().find(f=>isoOf(f)===iso)?.properties.name)||iso;
+function afterCountryData(){feats().forEach(f=>delete f._iso);for(const d of all())delete d._cc;buildSelect();colorMap();if(state.cc)renderPanel();render();}
+
+/* contadores en vivo */
+const YR=31557600e3;
+function demo(iso){const d=wb[iso]||{},W=iso==='WLD';
+ const pop=d.pop?.v??(W?8.2e9:null);if(pop==null)return null;
+ return {pop,cbr:d.cbr?.v??(W?16.6:null),cdr:d.cdr?.v??(W?7.6:null),gr:d.gr?.v??(W?0.9:0),y:d.pop?.y??2025};}
+function live(iso,now){const m=demo(iso);if(!m)return null;
+ const popNow=m.pop*Math.pow(1+m.gr/100,(now-Date.UTC(m.y,6,1))/YR);
+ const mid=new Date(now);mid.setHours(0,0,0,0);const sec=(now-mid)/1000;
+ const bps=m.cbr!=null?popNow*m.cbr/1000/(YR/1000):null,dps=m.cdr!=null?popNow*m.cdr/1000/(YR/1000):null;
+ return {pop:popNow,births:bps!=null?bps*sec:null,deaths:dps!=null?dps*sec:null,net:bps!=null&&dps!=null?(bps-dps)*sec:null,bps,dps};}
+function every(rate){if(!rate)return '&nbsp;';const s=1/rate;
+ return s<1?'≈ '+nf(rate,1)+' por segundo · '+nf(rate*86400)+' al día':s<60?'≈ uno cada '+nf(s,1)+' s · '+nf(rate*86400)+' al día':'≈ uno cada '+nf(s/60,1)+' min · '+nf(rate*86400)+' al día';}
+function tick(){const now=Date.now(),cache={};
+ document.querySelectorAll('[data-live]').forEach(el=>{const iso=el.dataset.iso;const v=cache[iso]??=live(iso,now);
+  const x=v?.[el.dataset.live];el.textContent=x==null||!isFinite(x)?'—':Math.floor(x).toLocaleString('es-ES');});}
+function rates(){const now=Date.now();document.querySelectorAll('[data-rate]').forEach(el=>{const v=live(el.dataset.iso,now);
+ el.innerHTML=v?every(el.dataset.rate==='b'?v.bps:v.dps):'&nbsp;';});}
+setInterval(tick,200);setInterval(rates,10000);
+
+/* ---------- fuentes de eventos ---------- */
+async function loadUSGS(){try{
+ const j=await getJSON('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
+ state.data.usgs=j.features.map(f=>{const p=f.properties,[lon,lat]=f.geometry.coordinates;
+  return {id:'q'+f.id,sec:'eq',title:'Terremoto de magnitud '+(typeof p.mag==='number'?p.mag.toFixed(1):'?')+(p.tsunami?' · aviso de tsunami':''),
+  place:p.place||'',time:p.time,lat,lon,url:p.url,src:'USGS',mag:p.mag||0};});
+ setStatus('usgs','Terremotos (USGS)',true,state.data.usgs.length+' avisos');
+ }catch(e){setStatus('usgs','Terremotos (USGS)',false,netMsg(e));}render();}
+const EOMAP={severeStorms:'storm',wildfires:'fire',volcanoes:'volc',floods:'flood'};
+const EONAME={drought:'Sequía',dustHaze:'Polvo y bruma',earthquakes:'Terremoto',landslides:'Deslizamiento',manmade:'Causado por humanos',seaLakeIce:'Hielo marino',snow:'Nieve',tempExtremes:'Temperaturas extremas',waterColor:'Color del agua'};
+async function loadEONET(){try{
+ const j=await getJSON('https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=30&limit=400');
+ state.data.eonet=j.events.map(ev=>{const g=ev.geometry[ev.geometry.length-1];if(!g)return null;
+  let c=g.coordinates;while(Array.isArray(c[0]))c=c[0];const cat=ev.categories[0]?.id||'';
+  return {id:'e'+ev.id,sec:EOMAP[cat]||'nat',title:ev.title,place:(EONAME[cat]?EONAME[cat]+' · ':'')+'NASA EONET',
+   time:Date.parse(g.date),lat:c[1],lon:c[0],url:ev.sources?.[0]?.url||ev.link,src:'NASA EONET',
+   mag:g.magnitudeValue?(g.magnitudeValue+' '+(g.magnitudeUnit||'')):''};}).filter(Boolean);
+ setStatus('eonet','Fenómenos naturales (NASA)',true,state.data.eonet.length+' avisos');
+ }catch(e){setStatus('eonet','Fenómenos naturales (NASA)',false,netMsg(e));}render();}
+const GDT={EQ:'Terremoto',TC:'Ciclón tropical',FL:'Inundación',VO:'Volcán',DR:'Sequía',WF:'Incendio forestal'};
+const LVL={Green:'verde',Orange:'naranja',Red:'roja'};
+async function loadGDACS(){try{
+ const d=x=>x.toISOString().slice(0,10);
+ const j=await getJSON(`https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=EQ;TC;FL;VO;DR;WF&fromdate=${d(new Date(Date.now()-10*864e5))}&todate=${d(new Date())}&alertlevel=Orange;Red`);
+ state.data.gdacs=(j.features||[]).map(f=>{const p=f.properties;let c=f.geometry.coordinates;while(Array.isArray(c[0]))c=c[0];
+  return {id:'g'+p.eventtype+p.eventid,sec:'gdacs',title:(GDT[p.eventtype]||p.eventtype)+': '+(p.name||p.eventname||''),
+  place:'Alerta '+(LVL[p.alertlevel]||p.alertlevel||'')+(p.country?' · '+p.country:''),time:Date.parse(p.todate||p.fromdate),
+  lat:c[1],lon:c[0],url:p.url?.report||'https://www.gdacs.org/',src:'GDACS'};});
+ setStatus('gdacs','Alertas (GDACS)',true,state.data.gdacs.length+' avisos');
+ }catch(e){setStatus('gdacs','Alertas (GDACS)',false,netMsg(e));}render();}
+
+/* GDELT: una petición cada 5 s, en cola */
+const gq=[];let gbusy=false;
+function gdelt(url,first){return new Promise((res,rej)=>{(first?gq.unshift:gq.push).call(gq,{url,res,rej});pump();});}
+async function pump(){if(gbusy)return;gbusy=true;while(gq.length){const {url,res,rej}=gq.shift();try{res(await getJSON(url));}catch(e){rej(e);}await sleep(5600);}gbusy=false;}
+const gurl=(q)=>'https://api.gdeltproject.org/api/v2/doc/doc?query='+encodeURIComponent(q)+'&mode=artlist&maxrecords=60&format=json&sort=datedesc&timespan='+$('span').value;
+function newsItems(arts,sec){const seen=new Set();
+ return (arts||[]).filter(a=>{const k=(a.title||'').toLowerCase().slice(0,60);if(!k||seen.has(k))return false;seen.add(k);return true;})
+ .map(a=>{const s=a.seendate||'';const t=Date.UTC(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8),+s.slice(9,11),+s.slice(11,13));
+  const g=geocode(a.title);const id=sec+a.url;const [jx,jy]=jitter(id);
+  return {id,sec,title:a.title,place:(g?g.name+' · ':'')+a.domain,time:t,lat:g?g.lat+jy:null,lon:g?g.lon+jx:null,clat:g?.lat,clon:g?.lon,url:a.url,src:a.domain};});}
+async function gfetch(q,first){try{return await gdelt(gurl(q),first);}catch(e){await sleep(1000);return gdelt(gurl(q),first);}}
+let newsRun=0;
+function loadNews(){const run=++newsRun,lang=$('lang').value;
+ for(const n of NEWS){gfetch(lang?n.q+' sourcelang:'+lang:n.qen).then(j=>{if(run!==newsRun)return;state.data[n.id]=newsItems(j.articles,n.id);
+   setStatus(n.id,SEC[n.id].name+' (GDELT)',true,state.data[n.id].length+' noticias');render();})
+  .catch(e=>{if(run===newsRun)setStatus(n.id,SEC[n.id].name+' (GDELT)',false,netMsg(e));});}}
+let ctyRun=0;
+function loadCountryNews(iso){const run=++ctyRun;delete state.data.n_cty;if(!iso)return;
+ const lang=$('lang').value,name=lang?(rc[iso]?.es||cname(iso)):(rc[iso]?.en||cname(iso));
+ setStatus('n_cty','Noticias de '+cname(iso),true,'buscando…');
+ gfetch('"'+name.replace(/"/g,'')+'"'+(lang?' sourcelang:'+lang:''),true).then(j=>{if(run!==ctyRun)return;
+  state.data.n_cty=newsItems(j.articles,'n_cty');setStatus('n_cty','Noticias de '+cname(iso),true,state.data.n_cty.length+' noticias');render();})
+ .catch(e=>{if(run===ctyRun)setStatus('n_cty','Noticias de '+cname(iso),false,netMsg(e));});}
+
+/* ---------- mapa ---------- */
+const svg=d3.select('#map'),wrap=$('mapwrap');
+const root=svg.append('g'),gLand=root.append('g'),gPts=root.append('g');
+let proj=d3.geoNaturalEarth1(),path=d3.geoPath(proj),world=null;
+const feats=()=>world||[];
+const zoom=d3.zoom().scaleExtent([1,14]).on('zoom',e=>{root.attr('transform',e.transform);state.k=e.transform.k;
+ gPts.selectAll('circle.pt').attr('r',d=>rad(d)/state.k).attr('stroke-width',1/state.k);
+ gLand.selectAll('path.country').attr('stroke-width',function(){return (this.classList.contains('csel')?2:.5)/state.k;});});
+svg.call(zoom);
+function rad(d){return d.sec==='eq'?2.5+Math.max(0,d.mag-2.5)*1.6:d.sec.startsWith('n_')?4:d.sec==='gdacs'?7:4.5;}
+const tip=$('tip');
+function moveTip(e){const r=wrap.getBoundingClientRect();tip.style.left=Math.max(4,Math.min(e.clientX-r.left+14,r.width-270))+'px';tip.style.top=(e.clientY-r.top+14)+'px';}
+function layout(){const W=wrap.clientWidth,H=wrap.clientHeight;
+ proj.fitExtent([[8,8],[W-8,H-8]],{type:'Sphere'});
+ gLand.selectAll('*').remove();
+ gLand.append('path').datum({type:'Sphere'}).attr('d',path).attr('fill','var(--sea)').on('click',()=>closeInfo());
+ gLand.append('path').datum(d3.geoGraticule10()).attr('class','grat').attr('d',path);
+ gLand.selectAll('path.country').data(feats()).join('path').attr('class','country').attr('d',path)
+  .on('mouseenter',(e,f)=>{const iso=isoOf(f);const m=MET[state.metric];const v=m&&wb[iso]?.[state.metric];
+   tip.style.display='block';tip.innerHTML='<b>'+esc(cname(iso)||f.properties.name)+'</b>'+(m?'<br>'+esc(m.n)+': '+(v?esc(nf(v.v,m.d)+m.u)+' ('+v.y+')':'sin datos'):'<br>Toca para ver su ficha');})
+  .on('mousemove',moveTip).on('mouseleave',()=>tip.style.display='none')
+  .on('click',(e,f)=>{e.stopPropagation();const iso=isoOf(f);if(iso)selectCountry(iso===state.cc?null:iso);});
+ colorMap();drawPts();}
+new ResizeObserver(()=>layout()).observe(wrap);
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r=>r.json()).then(t=>{
+ world=topojson.feature(t,t.objects.countries).features.filter(f=>f.properties.name!=='Antarctica');
+ $('maploading').remove();layout();buildSelect();for(const d of all())delete d._cc;render();})
+ .catch(()=>{$('maploading').textContent='No se pudo cargar el contorno del mapa; los puntos siguen funcionando.';});
+
+function colorMap(){const m=MET[state.metric],lg=$('legend');
+ const sel=gLand.selectAll('path.country').classed('csel',f=>state.cc&&isoOf(f)===state.cc);
+ sel.filter('.csel').raise();
+ if(!m){sel.style('fill',null);lg.style.display='none';return;}
+ const vals=feats().map(f=>wb[isoOf(f)]?.[state.metric]?.v).filter(v=>v!=null);
+ if(!vals.length){sel.style('fill',null);lg.style.display='none';return;}
+ const sc=d3.scaleSequentialQuantile(vals,t=>m.i(.12+t*.83));
+ sel.style('fill',f=>{const v=wb[isoOf(f)]?.[state.metric]?.v;return v==null?null:sc(v);});
+ const [lo,hi]=d3.extent(vals);
+ lg.style.display='block';lg.innerHTML=`<b>${esc(m.n)}</b><div class="bar" style="background:linear-gradient(90deg,${[0,.25,.5,.75,1].map(t=>m.i(.12+t*.83)).join(',')})"></div><div class="lim"><span>${esc(nf(lo,m.d))}</span><span>${esc(nf(hi,m.d)+m.u)}</span></div>`;}
+
+function drawPts(){const items=visible().filter(d=>d.lat!=null&&isFinite(d.lat)&&isFinite(d.lon));
+ const pts=gPts.selectAll('circle.pt').data(items,d=>d.id);
+ pts.exit().remove();
+ const ent=pts.enter().append('circle').attr('class','pt')
+  .on('mouseenter',(e,d)=>{tip.style.display='block';tip.innerHTML='<b>'+esc(d.title)+'</b><br>'+esc(d.place);})
+  .on('mousemove',moveTip).on('mouseleave',()=>tip.style.display='none')
+  .on('click',(e,d)=>{e.stopPropagation();select(d.id,false);});
+ ent.each(function(d){if(firstDone&&Date.now()-d.time<3*3600e3){const [x,y]=proj([d.lon,d.lat]);
+  gPts.insert('circle',':first-child').attr('class','ring').attr('cx',x).attr('cy',y).attr('stroke',SEC[d.sec].color).attr('stroke-width',2)
+   .on('animationend',function(){this.remove();});}});
+ ent.merge(pts).each(function(d){const p=proj([d.lon,d.lat]);if(p)d3.select(this).attr('cx',p[0]).attr('cy',p[1]);})
+  .attr('r',d=>rad(d)/state.k).attr('stroke-width',1/state.k).attr('fill',d=>SEC[d.sec].color).attr('fill-opacity',.85)
+  .classed('sel',d=>d.id===state.sel);
+ gPts.selectAll('circle.pt').sort((a,b)=>rad(b)-rad(a));
+ gPts.selectAll('circle.pt').filter(d=>d.id===state.sel).raise();}
+$('zin').onclick=()=>svg.transition().duration(300).call(zoom.scaleBy,1.8);
+$('zout').onclick=()=>svg.transition().duration(300).call(zoom.scaleBy,1/1.8);
+$('zreset').onclick=()=>{svg.transition().duration(500).call(zoom.transform,d3.zoomIdentity);closeInfo();};
+function zoomToCountry(iso){const f=feats().find(f=>isoOf(f)===iso);if(!f)return;
+ const [[x0,y0],[x1,y1]]=path.bounds(f),W=wrap.clientWidth,H=wrap.clientHeight;
+ const k=Math.max(1,Math.min(10,.8/Math.max((x1-x0)/W,(y1-y0)/H)));
+ svg.transition().duration(800).call(zoom.transform,d3.zoomIdentity.translate(W/2,H/2).scale(k).translate(-(x0+x1)/2,-(y0+y1)/2));}
+
+/* ¿en qué país está cada aviso? */
+let bounds=null;
+function countryOf(d){if(d._cc!==undefined)return d._cc;if(!world)return null;
+ if(d.sec==='n_cty'){return d._cc=state.cc;}
+ const lat=d.clat??d.lat,lon=d.clon??d.lon;let hit=null;
+ if(lat!=null){bounds??=new Map(world.map(f=>[f,d3.geoBounds(f)]));
+  for(const f of world){const [[w,s],[e,n]]=bounds.get(f);if(lat<s||lat>n)continue;if(w<=e&&(lon<w||lon>e))continue;
+   if(d3.geoContains(f,[lon,lat])){hit=isoOf(f);break;}}}
+ if(!hit&&d.place){const p=norm(d.place);for(const f of world){const iso=isoOf(f);const n=norm(f.properties.name);
+  if(n.length>3&&p.endsWith(n)){hit=iso;break;}}}
+ return d._cc=hit;}
+
+/* ---------- ficha del país ---------- */
+function buildSelect(){const s=$('country');const isos=[...new Set(feats().map(isoOf).filter(Boolean))];
+ if(!isos.length)return;const cur=state.cc||'';
+ s.innerHTML='<option value="">El mundo entero</option>'+isos.map(i=>[i,cname(i)]).sort((a,b)=>a[1].localeCompare(b[1],'es')).map(([i,n])=>`<option value="${esc(i)}">${esc(n)}</option>`).join('');
+ s.value=cur;}
+function fact(k,v,y){return `<div class="fact"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>${y?`<div class="y">${esc(y)}</div>`:''}</div>`;}
+function renderPanel(){const p=$('panel'),iso=state.cc;if(!iso){p.classList.remove('on');p.innerHTML='';return;}
+ const d=wb[iso]||{},r=rc[iso]||{},y=k=>d[k]?'dato de '+d[k].y:'';
+ const has=!!demo(iso);
+ p.classList.add('on');
+ p.innerHTML=`<div class="phead"><div class="who">${r.flag?`<img class="flag" src="${esc(safeUrl(r.flag))}" alt="Bandera de ${esc(cname(iso))}">`:''}<div><h2>${esc(cname(iso))}</h2><div class="sub">${esc([r.region,r.capital&&'Capital: '+r.capital].filter(Boolean).join(' · '))}</div></div></div>
+ <button class="btn" id="closecty">Volver al mundo</button></div>
+ ${has?`<div class="counters">
+  <div class="ctr"><div class="k">Población ahora</div><div class="v" data-live="pop" data-iso="${esc(iso)}">—</div><div class="s">estimación en este instante</div></div>
+  <div class="ctr b"><div class="k">Nacimientos hoy</div><div class="v" data-live="births" data-iso="${esc(iso)}">—</div><div class="s" data-rate="b" data-iso="${esc(iso)}">&nbsp;</div></div>
+  <div class="ctr d"><div class="k">Muertes hoy</div><div class="v" data-live="deaths" data-iso="${esc(iso)}">—</div><div class="s" data-rate="d" data-iso="${esc(iso)}">&nbsp;</div></div>
+  <div class="ctr"><div class="k">Crecimiento natural hoy</div><div class="v" data-live="net" data-iso="${esc(iso)}">—</div><div class="s">nacimientos menos muertes</div></div></div>`
+  :`<p class="note">El Banco Mundial no tiene datos de población de este territorio, así que no hay contadores en vivo.</p>`}
+ <div class="facts">
+  ${fact('Natalidad',d.cbr?nf(d.cbr.v,1)+' por cada 1.000':'—',y('cbr'))}
+  ${fact('Mortalidad',d.cdr?nf(d.cdr.v,1)+' por cada 1.000':'—',y('cdr'))}
+  ${fact('Esperanza de vida',d.le?nf(d.le.v,1)+' años':'—',y('le'))}
+  ${fact('Hijos por mujer',d.tfr?nf(d.tfr.v,2):'—',y('tfr'))}
+  ${fact('Mortalidad infantil',d.imr?nf(d.imr.v,1)+' por cada 1.000 nacidos':'—',y('imr'))}
+  ${fact('Crecimiento de la población',d.gr?nf(d.gr.v,2)+' % al año':'—',y('gr'))}
+  ${fact('Migración neta',d.mig?(d.mig.v>0?'+':'')+nf(d.mig.v)+' personas':'—',y('mig'))}
+  ${fact('PIB',d.gdp?money(d.gdp.v):'—',y('gdp'))}
+  ${fact('PIB por habitante',d.gdppc?nf(d.gdppc.v)+' US$':'—',y('gdppc'))}
+  ${fact('Población urbana',d.urb?nf(d.urb.v,0)+' %':'—',y('urb'))}
+  ${fact('Uso de internet',d.net?nf(d.net.v,0)+' % de la población':'—',y('net'))}
+  ${fact('Superficie',d.area?nf(d.area.v)+' km²':'—',y('area'))}
+  ${r.langs?fact('Idiomas',r.langs):''}${r.cur?fact('Moneda',r.cur):''}
+ </div>
+ <p class="note">Los contadores son estimaciones en directo a partir de la natalidad, mortalidad y población más recientes del Banco Mundial. Abajo tienes todo lo que está pasando ahora en ${esc(cname(iso))}.</p>`;
+ $('closecty').onclick=()=>selectCountry(null);tick();rates();}
+function selectCountry(iso){state.cc=iso||null;$('country').value=iso||'';closeInfo(true);
+ if(iso){zoomToCountry(iso);}else svg.transition().duration(600).call(zoom.transform,d3.zoomIdentity);
+ if(state.active==='n_cty'&&!iso)state.active='all';
+ for(const d of state.data.n_cty||[])delete d._cc;
+ loadCountryNews(iso);colorMap();renderPanel();render();
+ if(iso)setTimeout(()=>$('panel').scrollIntoView({behavior:'smooth',block:'nearest'}),300);}
+$('country').addEventListener('change',e=>selectCountry(e.target.value||null));
+$('metric').addEventListener('change',e=>{state.metric=e.target.value;colorMap();});
+
+/* ---------- lista y secciones ---------- */
+function all(){return Object.values(state.data).flat();}
+function inCountry(d){return !state.cc||countryOf(d)===state.cc;}
+function visible(){const q=state.q.trim().toLowerCase();
+ return all().filter(d=>(state.active==='all'||d.sec===state.active)&&inCountry(d)&&(!q||(d.title+' '+d.place).toLowerCase().includes(q)));}
+function renderTabs(){const items=all().filter(inCountry);const cnt={};for(const d of items)cnt[d.sec]=(cnt[d.sec]||0)+1;
+ $('tabs').innerHTML=SECS.filter(s=>s.id!=='n_cty'||state.cc).map(s=>`<button class="tab" data-s="${s.id}" aria-pressed="${state.active===s.id}">${s.id!=='all'?`<span class="sw" style="background:${s.color}"></span>`:''}${esc(s.id==='n_cty'?'Noticias de '+cname(state.cc):s.name)} <span class="n">${s.id==='all'?items.length:(cnt[s.id]||0)}</span></button>`).join('');
+ $('ccchip').innerHTML=state.cc?`<span class="chip">Solo ${esc(cname(state.cc))}<button aria-label="Quitar filtro de país" id="ccx">×</button></span>`:'';
+ if(state.cc)$('ccx').onclick=()=>selectCountry(null);}
+function renderList(){const items=visible().sort((a,b)=>b.time-a.time).slice(0,400);
+ $('list').innerHTML=items.length?items.map(d=>`<article class="card${d.id===state.sel?' sel':''}" tabindex="0" data-id="${esc(d.id)}">
+  <div class="meta"><span class="lab"><span class="sw" style="background:${SEC[d.sec].color}"></span>${esc(d.sec==='n_cty'?'Noticias de '+cname(state.cc):SEC[d.sec].name)}</span><span title="${esc(isFinite(d.time)?fmt(d.time):'')}">${isFinite(d.time)?esc(ago(d.time)):''}</span></div>
+  <h3>${esc(d.title)}</h3><div class="place">${esc(d.place)}${d.mag&&d.sec!=='eq'?' · '+esc(d.mag):''}</div>
+  <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:auto"><a href="${esc(safeUrl(d.url))}" target="_blank" rel="noopener">Leer más ↗</a>${d.lat==null?'<span class="nopin">sin lugar en el mapa</span>':''}</div>
+ </article>`).join(''):`<div class="empty">${Object.keys(state.status).length?(state.cc?'Ahora mismo no hay avisos de '+esc(cname(state.cc))+' en esta sección.':'No hay nada en esta sección con ese filtro.'):'Cargando datos en directo…'}</div>`;}
+function renderStatus(){$('status').innerHTML=Object.values(state.status).map(s=>`<span><b>${esc(s.label)}:</b> <span class="${s.ok?'ok':'err'}">${esc(s.ok?s.msg:'sin conexión ('+s.msg+')')}</span></span>`).join('');}
+let firstDone=false;
+function render(){renderTabs();renderList();drawPts();}
+
+function select(id,fly){state.sel=id;const d=all().find(x=>x.id===id);if(!d)return;
+ document.querySelectorAll('.card.sel').forEach(c=>c.classList.remove('sel'));
+ const card=document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+ if(card){card.classList.add('sel');if(!fly)card.scrollIntoView({block:'nearest',behavior:'smooth'});}
+ drawPts();
+ const info=$('info');info.style.display='block';
+ info.innerHTML=`<button class="x" aria-label="Cerrar">×</button><div class="meta"><span class="lab"><span class="sw" style="background:${SEC[d.sec].color}"></span>${esc(SEC[d.sec].name)}</span><span>${isFinite(d.time)?esc(fmt(d.time)):''}</span></div><h3>${esc(d.title)}</h3><div class="place">${esc(d.place)}</div><p style="margin:8px 0 0"><a href="${esc(safeUrl(d.url))}" target="_blank" rel="noopener">Leer más ↗</a></p>`;
+ info.querySelector('.x').onclick=e=>{e.stopPropagation();closeInfo();};
+ if(fly&&d.lat!=null){const [x,y]=proj([d.lon,d.lat]);const W=wrap.clientWidth,H=wrap.clientHeight,k=Math.max(state.k,4);
+  svg.transition().duration(700).call(zoom.transform,d3.zoomIdentity.translate(W/2,H/2).scale(k).translate(-x,-y));
+  wrap.scrollIntoView({block:'nearest',behavior:'smooth'});}}
+function closeInfo(quiet){$('info').style.display='none';state.sel=null;document.querySelectorAll('.card.sel').forEach(c=>c.classList.remove('sel'));if(!quiet)drawPts();}
+
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;state.active=b.dataset.s;render();});
+$('list').addEventListener('click',e=>{if(e.target.closest('a'))return;const c=e.target.closest('.card');if(c)select(c.dataset.id,true);});
+$('list').addEventListener('keydown',e=>{if(e.key==='Enter'){const c=e.target.closest('.card');if(c)select(c.dataset.id,true);}});
+$('q').addEventListener('input',e=>{state.q=e.target.value;render();});
+const resetNews=()=>{NEWS.forEach(n=>delete state.data[n.id]);gq.length=0;render();loadNews();if(state.cc)loadCountryNews(state.cc);};
+$('lang').addEventListener('change',resetNews);$('span').addEventListener('change',resetNews);
+
+async function loadFast(){await Promise.all([loadUSGS(),loadEONET(),loadGDACS()]);firstDone=true;
+ $('upd').textContent='En directo · '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});}
+$('refresh').onclick=()=>{loadFast();loadNews();if(state.cc)loadCountryNews(state.cc);};
+render();tick();rates();loadWB();loadRC();loadFast();loadNews();
+setInterval(loadFast,5*60e3);setInterval(()=>{loadNews();if(state.cc)loadCountryNews(state.cc);},15*60e3);
+setInterval(renderList,60e3);
+}
+</script>
+</body>
+</html>
